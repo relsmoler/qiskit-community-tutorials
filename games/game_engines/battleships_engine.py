@@ -67,16 +67,19 @@ def play_game():
 
             # add the bombs (of the opposing player)
             for position in range(5):
-                # add as many bombs as have been placed at this position
-                for _ in range(bomb[(player+1)%2][position]):
-                    # the effectiveness of the bomb
-                    # (which means the quantum operation we apply)
-                    # depends on which ship it is
-                    for ship in [0,1,2]:
-                        if (position == shipPos[player][ship]):
-                            frac = 1/(ship+1)
-                            # add this fraction of a NOT to the QASM
-                            qc[player].u3(frac * math.pi, 0.0, 0.0, q[position])
+                # add as many bombs as have been placed at this position unless bomb at position is set to -1 (sinked ship)
+                if bomb[(player+1)%2][position] != -1:
+                    for _ in range(bomb[(player+1)%2][position]):
+                        # the effectiveness of the bomb
+                        # (which means the quantum operation we apply)
+                        # depends on which ship it is
+                        for ship in [0,1,2]:
+                            if (position == shipPos[player][ship]):
+                                frac = 1/(ship+1)
+                                # add this fraction of a NOT to the QASM
+                                qc[player].u3(frac * math.pi, 0.0, 0.0, q[position])
+                else:
+                    qc[player].u3(math.pi, 0.0, 0.0, q[position])
 
             # Finally, measure them
             for position in range(5):
@@ -93,13 +96,15 @@ def play_game():
             grid[player] = job.result().get_counts(qc[player])
         print(grid)
 
-        game = display_grid(grid, shipPos, shots)
+        game, bomb  = display_grid(grid, shipPos, bomb, shots )
 
 def ask_for_device ():
     
     d = input("Do you want to play on the real device? (y/n)\n").upper()
     if (d=="Y"):
-        device = IBMQ.get_backend('ibmq_5_tenerife') # if real, we use ibmqx4
+        provider = IBMQ.get_provider()
+        device = provider.get_backend('ibmq_essex')
+        #device = IBMQ.get_backend('ibmq_5_tenerife') # if real, we use ibmqx4
     else:
         device = Aer.get_backend('qasm_simulator') # otherwise, we use a simulator
         
@@ -170,9 +175,13 @@ def ask_for_bombs ( bomb ):
             if position.isdigit(): # valid answers  have to be integers
                 position = int(position)
                 if position in range(5): # they need to be between 0 and 5, and not used for another ship of the same player
-                    bomb[player][position] = bomb[player][position] + 1
-                    choosing = False
-                    print ("\n")
+                    if bomb[player][position] != -1:
+                        bomb[player][position] = bomb[player][position] + 1
+                        choosing = False
+                        print ("\n")
+                    else: 
+                        print("\nYou just bobmed a sinked ship...\n")
+                        choosing = False
                 else:
                     print("\nThat's not a valid position. Try again.\n")
             else:
@@ -181,7 +190,7 @@ def ask_for_bombs ( bomb ):
     return bomb
 
 
-def display_grid ( grid, shipPos, shots ):
+def display_grid ( grid, shipPos, bomb, shots ):
     
     # since this function has been called, the game must still be on
     game = True
@@ -214,6 +223,8 @@ def display_grid ( grid, shipPos, shots ):
             if ( damage[player][position] > 0.1 ):
                 if (damage[player][position]>0.9):
                     display[position] = "100%"
+                    bomb[player][position] = -1
+                    #print (bomb)
                 else:
                     display[position] = str(int( 100*damage[player][position] )) + "% "
             #print(position,damage[player][position])
@@ -245,7 +256,7 @@ def display_grid ( grid, shipPos, shots ):
             print("")
 
 
-    return game
+    return game , bomb
 
 
 
