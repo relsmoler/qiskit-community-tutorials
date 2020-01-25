@@ -53,7 +53,9 @@ def play_game():
 
         # ask both players where they want to bomb, and update the list of bombings so far
         bomb = ask_for_bombs(bomb)
-
+        print("DEBUG: bomb array after ask_for_bombs")
+        print (bomb)
+        
         # now we create and run the quantum programs that implement this on the grid for each player
         qc = []
         for player in range(2):
@@ -94,9 +96,14 @@ def play_game():
         # and extract data
         for player in range(2):
             grid[player] = job.result().get_counts(qc[player])
-        print(grid)
-
+        #print("DEBUG: grid")
+        #print(grid)
+        #print("DEBUG: bomb array before display grid")
+        #print(bomb)
+        
         game, bomb  = display_grid(grid, shipPos, bomb, shots )
+        #print("DEBUG: bomb array after display grid")
+        #print(bomb)
 
 def ask_for_device ():
     
@@ -155,7 +162,7 @@ def ask_for_ships ():
     return shipPos
                         
 
-def ask_for_bombs ( bomb ):
+def ask_for_bombs (bomb):
     
     input("> Press Enter to place some bombs...\n")
     
@@ -175,6 +182,7 @@ def ask_for_bombs ( bomb ):
             if position.isdigit(): # valid answers  have to be integers
                 position = int(position)
                 if position in range(5): # they need to be between 0 and 5, and not used for another ship of the same player
+                    #if the ship is allready destroyed don't add more bombs
                     if bomb[player][position] != -1:
                         bomb[player][position] = bomb[player][position] + 1
                         choosing = False
@@ -190,7 +198,8 @@ def ask_for_bombs ( bomb ):
     return bomb
 
 
-def display_grid ( grid, shipPos, bomb, shots ):
+#Added bomb array as an argument so bombs array could be tuned not to have future effect on allready destroyed ships 
+def display_grid ( grid, shipPos, bomb, shots):
     
     # since this function has been called, the game must still be on
     game = True
@@ -223,12 +232,15 @@ def display_grid ( grid, shipPos, bomb, shots ):
             if ( damage[player][position] > 0.1 ):
                 if (damage[player][position]>0.9):
                     display[position] = "100%"
-                    bomb[player][position] = -1
-                    #print (bomb)
+                    # if ship is destroyed - disable opponent bombs effect of this position
+                    bomb[(player+1)%2][position] = -1
                 else:
                     display[position] = str(int( 100*damage[player][position] )) + "% "
-            #print(position,damage[player][position])
-                    
+            #print("DEBUG: position and demage")
+            #print(position)
+            #print(damage[player][position])
+            
+        print("DEBUG: Debug")            
         print("Here is the percentage damage for ships that have been bombed.\n")
         print(display[ 4 ] + "    " + display[ 0 ])
         print(r' |\     /|')
@@ -243,6 +255,10 @@ def display_grid ( grid, shipPos, bomb, shots ):
         print("Ships with 95% damage or more have been destroyed\n")
 
         print("\n")
+        #print("DEBUG: Your ships positions:")
+        #print(shipPos[player])
+        #print("DEBUG: Enemy bobmed you:")
+        #print(bomb[(player+1)%2])
 
         # if a player has all their ships destroyed, the game is over
         # ideally this would mean 100% damage, but we go for 95% because of noise again
